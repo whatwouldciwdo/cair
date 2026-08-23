@@ -116,7 +116,6 @@ services:
 networks:
   frontend:
   backend:
-    internal: true
 volumes:
   postgres_data:
   artifact_data:
