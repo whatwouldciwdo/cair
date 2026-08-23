@@ -5,6 +5,10 @@ test -f .env.production || { echo "deploy/.env.production belum ada" >&2; exit 1
 chmod 600 .env.production
 mkdir -p backups evidence
 docker compose --env-file .env.production -f docker-compose.production.yml config --quiet
+if docker compose --env-file .env.production -f docker-compose.production.yml config | grep -Eq '^[[:space:]]+type: bind$'; then
+  echo "Konfigurasi production tidak boleh memiliki bind mount host" >&2
+  exit 1
+fi
 grep -Eq '^POSTGRES_PASSWORD=.{24,}$' .env.production || { echo "POSTGRES_PASSWORD minimal 24 karakter" >&2; exit 1; }
 grep -Eq '^AUTH_SECRET=.{32,}$' .env.production || { echo "AUTH_SECRET minimal 32 karakter" >&2; exit 1; }
 grep -Eq '^METRICS_TOKEN=.{32,}$' .env.production || { echo "METRICS_TOKEN minimal 32 karakter" >&2; exit 1; }
