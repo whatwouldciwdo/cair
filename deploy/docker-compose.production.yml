@@ -15,7 +15,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-    security_opt: [no-new-privileges:true]
 
   migrate:
     build: { context: .., dockerfile: Dockerfile }
@@ -47,7 +46,6 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-    security_opt: [no-new-privileges:true]
 
   worker:
     build: { context: .., dockerfile: Dockerfile }
@@ -58,7 +56,6 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
     networks: [backend]
-    security_opt: [no-new-privileges:true]
 
   retention:
     build: { context: .., dockerfile: Dockerfile }
@@ -90,7 +87,6 @@ services:
     ports: ["3006:80"]
     depends_on: { web: { condition: service_healthy } }
     networks: [frontend]
-    security_opt: [no-new-privileges:true]
 
   prometheus:
     build:
