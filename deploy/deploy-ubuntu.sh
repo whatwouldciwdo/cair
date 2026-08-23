@@ -10,6 +10,7 @@ if docker compose --env-file .env.production -f docker-compose.production.yml co
   exit 1
 fi
 grep -Eq '^POSTGRES_PASSWORD=.{24,}$' .env.production || { echo "POSTGRES_PASSWORD minimal 24 karakter" >&2; exit 1; }
+grep -Eq '^DATABASE_URL=postgresql://.+@db:5432/.+' .env.production || { echo "DATABASE_URL wajib berupa URI PostgreSQL internal dengan kredensial yang sudah URL-encoded" >&2; exit 1; }
 grep -Eq '^AUTH_SECRET=.{32,}$' .env.production || { echo "AUTH_SECRET minimal 32 karakter" >&2; exit 1; }
 grep -Eq '^METRICS_TOKEN=.{32,}$' .env.production || { echo "METRICS_TOKEN minimal 32 karakter" >&2; exit 1; }
 docker compose --env-file .env.production -f docker-compose.production.yml build --pull
