@@ -2,6 +2,7 @@ name: pltgu-ai-production
 services:
   db:
     image: postgres:16.4-alpine
+    entrypoint: ["/bin/bash", "/usr/local/bin/docker-entrypoint.sh"]
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?required}
@@ -71,6 +72,7 @@ services:
 
   backup:
     image: postgres:16.4-alpine
+    entrypoint: ["/bin/bash", "/usr/local/bin/docker-entrypoint.sh"]
     restart: unless-stopped
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?required}
