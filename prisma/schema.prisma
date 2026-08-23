@@ -1,0 +1,345 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MessageFeedback {
+  UP
+  DOWN
+}
+
+enum ArtifactFormat {
+  PDF
+  DOCX
+  XLSX
+}
+
+enum DataScope {
+  PRIVATE
+  UNIT
+}
+
+enum ArtifactStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+  DELETED
+}
+
+enum JobType {
+  DOCUMENT_PROCESS
+  ARTIFACT_GENERATE
+  RAG_EVALUATION
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  USER_CREATE
+  USER_UPDATE
+  DOCUMENT_UPLOAD
+  DOCUMENT_PROCESS
+  DOCUMENT_DELETE
+  CHAT_CREATE
+  CHAT_MESSAGE
+  ARTIFACT_CREATE
+  ARTIFACT_DOWNLOAD
+  ARTIFACT_DELETE
+  SETTINGS_UPDATE
+  EVALUATION_RUN
+}
+
+model User {
+  id            String             @id @default(cuid())
+  username      String             @unique
+  name          String
+  passwordHash  String
+  role          Role               @default(USER)
+  active        Boolean            @default(true)
+  unitId        String?
+  unit          Unit?              @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  conversations Conversation[]
+  documents     Document[]
+  artifacts     Artifact[]
+  auditEvents   AuditEvent[]
+  jobs          BackgroundJob[]
+  evaluations   RagEvaluationRun[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([unitId, active])
+}
+
+model Unit {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  active    Boolean    @default(true)
+  users     User[]
+  documents Document[]
+  artifacts Artifact[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Conversation {
+  id         String                 @id @default(cuid())
+  title      String                 @default("Percakapan baru")
+  model      String
+  userId     String
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages   Message[]
+  documents  ConversationDocument[]
+  pinnedAt   DateTime?
+  archivedAt DateTime?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  artifacts  Artifact[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, archivedAt, pinnedAt, updatedAt])
+}
+
+enum DocumentStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Document {
+  id            String                 @id @default(cuid())
+  name          String
+  mimeType      String
+  size          Int
+  status        DocumentStatus         @default(PROCESSING)
+  error         String?                @db.Text
+  scope         DataScope              @default(PRIVATE)
+  unitId        String?
+  unit          Unit?                  @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  checksum      String?
+  pageCount     Int?
+  sourcePath    String?
+  userId        String
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks        DocumentChunk[]
+  conversations ConversationDocument[]
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([unitId, scope, createdAt])
+  @@index([checksum])
+}
+
+model DocumentChunk {
+  id               String            @id @default(cuid())
+  documentId       String
+  document         Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  position         Int
+  pageNumber       Int?
+  content          String            @db.Text
+  embedding        Json
+  createdAt        DateTime          @default(now())
+  messageCitations MessageCitation[]
+
+  @@unique([documentId, position])
+  @@index([documentId])
+  @@index([documentId, pageNumber])
+}
+
+model ConversationDocument {
+  conversationId String
+  documentId     String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@id([conversationId, documentId])
+  @@index([documentId])
+}
+
+model Message {
+  id             String            @id @default(cuid())
+  role           MessageRole
+  content        String            @db.Text
+  feedback       MessageFeedback?
+  artifactFormat ArtifactFormat?
+  artifactName   String?
+  conversationId String
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  citations      MessageCitation[]
+  artifacts      Artifact[]
+  createdAt      DateTime          @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model MessageCitation {
+  id         String        @id @default(cuid())
+  messageId  String
+  message    Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  chunkId    String
+  chunk      DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  citationNo Int
+  score      Float
+  quote      String        @db.Text
+  createdAt  DateTime      @default(now())
+
+  @@unique([messageId, citationNo])
+  @@unique([messageId, chunkId])
+  @@index([chunkId])
+}
+
+model Artifact {
+  id             String         @id @default(cuid())
+  name           String
+  format         ArtifactFormat
+  status         ArtifactStatus @default(PENDING)
+  mimeType       String
+  size           Int?
+  storagePath    String?
+  checksum       String?
+  error          String?        @db.Text
+  version        Int            @default(1)
+  template       String         @default("CORPORATE")
+  scope          DataScope      @default(PRIVATE)
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitId         String?
+  unit           Unit?          @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  messageId      String?
+  message        Message?       @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  conversationId String?
+  conversation   Conversation?  @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([unitId, scope, createdAt])
+  @@index([status, createdAt])
+}
+
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  type        JobType
+  status      JobStatus @default(QUEUED)
+  payload     Json
+  result      Json?
+  error       String?   @db.Text
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  availableAt DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  lockedBy    String?
+  lockedAt    DateTime?
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, availableAt])
+  @@index([userId, createdAt])
+}
+
+model AuditEvent {
+  id         String      @id @default(cuid())
+  action     AuditAction
+  entityType String?
+  entityId   String?
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  unitId     String?
+  ipHash     String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([unitId, createdAt])
+  @@index([action, createdAt])
+}
+
+model RagEvaluationCase {
+  id              String                @id @default(cuid())
+  name            String
+  question        String                @db.Text
+  expectedAnswer  String?               @db.Text
+  expectedSources Json?
+  active          Boolean               @default(true)
+  results         RagEvaluationResult[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+model RagEvaluationRun {
+  id          String                @id @default(cuid())
+  model       String
+  status      JobStatus             @default(QUEUED)
+  summary     Json?
+  createdById String
+  createdBy   User                  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  results     RagEvaluationResult[]
+  createdAt   DateTime              @default(now())
+  finishedAt  DateTime?
+
+  @@index([createdAt])
+}
+
+model RagEvaluationResult {
+  id             String            @id @default(cuid())
+  runId          String
+  run            RagEvaluationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  caseId         String
+  case           RagEvaluationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  answer         String            @db.Text
+  retrievalScore Float?
+  citationScore  Float?
+  grounded       Boolean
+  latencyMs      Int
+  details        Json?
+  createdAt      DateTime          @default(now())
+
+  @@unique([runId, caseId])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model RateLimitBucket {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime
+  expiresAt   DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
+}

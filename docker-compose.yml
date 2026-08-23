@@ -1,0 +1,71 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pltgu_ai
+      POSTGRES_USER: pltgu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pltgu -d pltgu_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  web:
+    build: .
+    restart: unless-stopped
+    ports: ["3006:3006"]
+    environment:
+      DATABASE_URL: postgresql://pltgu:${POSTGRES_PASSWORD}@db:5432/pltgu_ai?schema=public
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
+      PORT: "3006"
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://10.8.140.75:11434}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      OCR_MAX_PAGES: ${OCR_MAX_PAGES:-20}
+      STORAGE_DIR: /app/storage
+      METRICS_TOKEN: ${METRICS_TOKEN}
+    volumes:
+      - artifact_data:/app/storage
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3006/api/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["./node_modules/.bin/tsx", "src/worker.ts"]
+    environment:
+      DATABASE_URL: postgresql://pltgu:${POSTGRES_PASSWORD}@db:5432/pltgu_ai?schema=public
+      STORAGE_DIR: /app/storage
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://10.8.140.75:11434}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+    volumes:
+      - artifact_data:/app/storage
+    depends_on:
+      db: { condition: service_healthy }
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["observability"]
+    ports: ["9090:9090"]
+    volumes:
+      - ./ops/prometheus:/etc/prometheus:ro
+      - ./secrets/metrics_token:/run/secrets/metrics_token:ro
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  grafana:
+    image: grafana/grafana:11.2.2
+    profiles: ["observability"]
+    ports: ["3001:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on: [prometheus]
+volumes:
+  postgres_data:
+  artifact_data:

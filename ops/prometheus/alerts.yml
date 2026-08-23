@@ -1,0 +1,13 @@
+groups:
+  - name: pltgu-chat
+    rules:
+      - alert: PLTGUChatDown
+        expr: up{job="pltgu-chat"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "PLTGU Chat tidak dapat dipantau" }
+      - alert: PLTGUFailedJobs
+        expr: pltgu_jobs_total{status="failed"} > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Terdapat background job gagal" }

@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -12,15 +12,44 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
 }
+
+.chat-markdown > :first-child { margin-top: 0; }
+.chat-markdown > :last-child { margin-bottom: 0; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3 { margin: 1.25rem 0 0.5rem; color: #0f172a; font-weight: 700; line-height: 1.35; }
+.chat-markdown h1 { font-size: 1.5rem; }
+.chat-markdown h2 { font-size: 1.25rem; }
+.chat-markdown h3 { font-size: 1.1rem; }
+.chat-markdown p { margin: 0.65rem 0; }
+.chat-markdown ul, .chat-markdown ol { margin: 0.65rem 0; padding-left: 1.5rem; }
+.chat-markdown ul { list-style: disc; }
+.chat-markdown ol { list-style: decimal; }
+.chat-markdown li { margin: 0.2rem 0; }
+.chat-markdown strong { color: #0f172a; font-weight: 700; }
+.chat-markdown a { color: #0f766e; text-decoration: underline; }
+.chat-markdown blockquote { margin: 0.75rem 0; border-left: 4px solid #14b8a6; background: #f0fdfa; padding: 0.5rem 1rem; }
+.chat-markdown code { border-radius: 0.3rem; background: #e2e8f0; padding: 0.1rem 0.3rem; font-family: var(--font-geist-mono), monospace; font-size: 0.9em; }
+.chat-markdown pre { margin: 0.75rem 0; overflow-x: auto; border-radius: 0.75rem; background: #0f172a; padding: 1rem; color: #e2e8f0; }
+.chat-markdown pre code { background: transparent; padding: 0; color: inherit; }
+.chat-markdown table { margin: 0.75rem 0; width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.chat-markdown th, .chat-markdown td { border: 1px solid #cbd5e1; padding: 0.5rem 0.75rem; text-align: left; }
+.chat-markdown th { background: #f1f5f9; color: #0f172a; }
+.chat-markdown .katex-display { margin: 1rem 0; overflow-x: auto; overflow-y: hidden; padding: 0.25rem 0; }
+
+/* Stitch chat theme overrides: scoped so document/admin pages retain their light theme. */
+.chat-shell .chat-markdown { color: #d8e3fb; }
+.chat-shell .chat-markdown h1,
+.chat-shell .chat-markdown h2,
+.chat-shell .chat-markdown h3,
+.chat-shell .chat-markdown strong { color: #f0f4ff; }
+.chat-shell .chat-markdown a { color: #adc6ff; }
+.chat-shell .chat-markdown blockquote { border-left-color: #adc6ff; background: #111c2d; color: #c2c6d6; }
+.chat-shell .chat-markdown code { background: #1f2a3c; color: #d8e3fb; }
+.chat-shell .chat-markdown pre { border: 1px solid #424754; background: #050d19; }
+.chat-shell .chat-markdown th,
+.chat-shell .chat-markdown td { border-color: #424754; }
+.chat-shell .chat-markdown th { background: #111c2d; color: #f0f4ff; }

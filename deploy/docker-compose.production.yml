@@ -1,0 +1,120 @@
+name: pltgu-ai-production
+services:
+  db:
+    image: postgres:16.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?required}
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    security_opt: [no-new-privileges:true]
+
+  migrate:
+    build: { context: .., dockerfile: Dockerfile }
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+    depends_on: { db: { condition: service_healthy } }
+    networks: [backend]
+
+  web:
+    build: { context: .., dockerfile: Dockerfile }
+    restart: unless-stopped
+    environment: &app_env
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?required}
+      AUTH_TRUST_HOST: "true"
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:?required}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      STORAGE_DIR: /app/storage
+      METRICS_TOKEN: ${METRICS_TOKEN:?required}
+      PORT: "3006"
+    volumes: [artifact_data:/app/storage]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [backend, frontend]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3006/api/health/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    security_opt: [no-new-privileges:true]
+
+  worker:
+    build: { context: .., dockerfile: Dockerfile }
+    command: ["./node_modules/.bin/tsx", "src/worker.ts"]
+    restart: unless-stopped
+    environment: *app_env
+    volumes: [artifact_data:/app/storage]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+
+  retention:
+    build: { context: .., dockerfile: Dockerfile }
+    command: ["sh", "-c", "while true; do ./node_modules/.bin/tsx scripts/retention.ts; sleep 86400; done"]
+    restart: unless-stopped
+    environment: *app_env
+    volumes: [artifact_data:/app/storage]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [backend]
+
+  backup:
+    image: postgres:16.4-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?required}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    command: ["sh", "-c", "while true; do pg_dump -h db -U ${POSTGRES_USER} -d ${POSTGRES_DB} -Fc -f /backups/pltgu-$$(date +%Y%m%d-%H%M%S).dump && find /backups -name '*.dump' -mtime +$$BACKUP_RETENTION_DAYS -delete; sleep 86400; done"]
+    volumes: [./backups:/backups]
+    depends_on: { db: { condition: service_healthy } }
+    networks: [backend]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports: ["80:80"]
+    volumes: [./nginx.conf:/etc/nginx/nginx.conf:ro]
+    depends_on: { web: { condition: service_healthy } }
+    networks: [frontend]
+    security_opt: [no-new-privileges:true]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["printf '%s' \"$$METRICS_TOKEN\" > /tmp/metrics_token && exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.retention.time=30d"]
+    volumes: ["../ops/prometheus:/etc/prometheus:ro", "prometheus_data:/prometheus"]
+    environment: { METRICS_TOKEN: "${METRICS_TOKEN:?required}" }
+    networks: [backend, frontend]
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?required}
+      GF_SERVER_ROOT_URL: http://${PUBLIC_HOST}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes: ["../ops/grafana/provisioning:/etc/grafana/provisioning:ro", "grafana_data:/var/lib/grafana"]
+    depends_on: [prometheus]
+    networks: [frontend]
+
+networks:
+  frontend:
+  backend:
+    internal: true
+volumes:
+  postgres_data:
+  artifact_data:
+  prometheus_data:
+  grafana_data:
