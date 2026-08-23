@@ -1,4 +1,4 @@
-import { AlignmentType, BorderStyle, Document, Footer, Header, HeadingLevel, Packer, PageNumber, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType } from "docx";
+import { AlignmentType, Document, Footer, HeadingLevel, Packer, PageNumber, Paragraph, ShadingType, TextRun } from "docx";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
@@ -14,7 +14,6 @@ export type CorporateExportMetadata = {
 };
 type ExportInput = { title: string; username: string; messages: ExportMessage[]; metadata?: CorporateExportMetadata };
 type ArtifactInput = { title: string; author: string; content: string; metadata?: CorporateExportMetadata };
-const companyName = "PT PLN INDONESIA POWER";
 const defaultUnit = "UBP CILEGON";
 const defaultClassification = "INTERNAL";
 
@@ -56,7 +55,7 @@ function plainText(value: string) {
 
 async function createPdf(input: ExportInput) {
   const metadata = corporateMetadata(input);
-  const document = new PDFDocument({ size: "A4", margins: { top: 76, right: 54, bottom: 58, left: 54 }, info: { Title: input.title, Author: input.username, Subject: "Dokumen korporat PLTGU AI" } });
+  const document = new PDFDocument({ size: "A4", margins: { top: 54, right: 54, bottom: 58, left: 54 }, info: { Title: input.title, Author: input.username, Subject: "Dokumen korporat PLTGU AI" } });
   const chunks: Buffer[] = [];
   document.on("data", (chunk: Buffer) => chunks.push(chunk));
   const completed = new Promise<Buffer>((resolve, reject) => {
@@ -64,18 +63,11 @@ async function createPdf(input: ExportInput) {
     document.on("error", reject);
   });
 
-  const header = () => {
-    document.save().rect(0, 0, document.page.width, 58).fill("#007C91");
-    document.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(10).text(`${companyName} | ${metadata.unit}`, 54, 18);
-    document.font("Helvetica").fontSize(8).text(`PLTGU AI  |  KLASIFIKASI: ${metadata.classification}`, 54, 35);
-    document.restore();
-  };
   const footer = (pageNumber: number) => {
     document.save().moveTo(54, document.page.height - 42).lineTo(document.page.width - 54, document.page.height - 42).strokeColor("#CBD5E1").stroke();
     document.fillColor("#64748B").font("Helvetica").fontSize(8).text("Dokumen dibuat secara elektronik melalui PLTGU AI", 54, document.page.height - 32, { continued: true });
     document.text(`  |  Halaman ${pageNumber}`, { align: "right" }); document.restore();
   };
-  header(); document.on("pageAdded", header);
   document.font("Helvetica-Bold").fontSize(18).fillColor("#0f5968").text(input.title);
   document.moveDown(0.35).font("Helvetica").fontSize(9).fillColor("#64748b").text(`Nomor: ${metadata.documentNumber}  |  Versi ${metadata.version}  |  ${dateLabel(metadata.issuedAt)}`);
   document.fontSize(9).text(`Penyusun: @${input.username}  |  Persetujuan: ${metadata.approvedBy}`);
@@ -108,8 +100,7 @@ async function createDocx(input: ExportInput) {
     new Paragraph({ children: [new TextRun({ text: `Nomor: ${metadata.documentNumber}   |   Versi ${metadata.version}   |   ${metadata.classification}`, bold: true, color: "0F5968", size: 18 })], shading: { type: ShadingType.CLEAR, fill: "E6F6F8" }, spacing: { after: 180 } }),
   );
   const document = new Document({ title: input.title, creator: input.username, description: "Dokumen korporat PLTGU AI", sections: [{
-    properties: { page: { margin: { top: 1100, right: 900, bottom: 900, left: 900 } } },
-    headers: { default: new Header({ children: [new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [new TableRow({ children: [new TableCell({ shading: { type: ShadingType.CLEAR, fill: "007C91" }, borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } }, children: [new Paragraph({ children: [new TextRun({ text: `${companyName} | ${metadata.unit}`, bold: true, color: "FFFFFF", size: 19 })] }), new Paragraph({ children: [new TextRun({ text: `PLTGU AI  |  ${metadata.classification}`, color: "D7F5F7", size: 15 })] })] })] })] })] }) },
+    properties: { page: { margin: { top: 900, right: 900, bottom: 900, left: 900 } } },
     footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Dokumen elektronik PLTGU AI  |  Halaman ", color: "64748B", size: 16 }), new TextRun({ children: [PageNumber.CURRENT], color: "64748B", size: 16 })] })] }) },
     children,
   }] });
@@ -122,7 +113,6 @@ async function createXlsx(input: ExportInput) {
   workbook.creator = input.username;
   workbook.created = new Date();
   const sheet = workbook.addWorksheet("Percakapan", { views: [{ state: "frozen", ySplit: 1 }] });
-  sheet.headerFooter.oddHeader = `&L&B${companyName} | ${metadata.unit}&R&B${metadata.classification}`;
   sheet.headerFooter.oddFooter = `&L${metadata.documentNumber}&C&P dari &N&RVersi ${metadata.version}`;
   sheet.columns = [
     { header: "No.", key: "number", width: 8 },
@@ -162,7 +152,6 @@ export async function createMessageArtifact(format: ExportFormat, input: Artifac
     const workbook = new ExcelJS.Workbook();
     workbook.creator = input.author;
     const sheet = workbook.addWorksheet("Hasil AI", { views: [{ state: "frozen", ySplit: 1 }] });
-    sheet.headerFooter.oddHeader = `&L&B${companyName} | ${metadata.unit}&R&B${metadata.classification}`;
     sheet.headerFooter.oddFooter = `&L${metadata.documentNumber}&C&P dari &N&RVersi ${metadata.version}`;
     const table = parseMarkdownTable(input.content);
     if (table.length >= 2) table.forEach((row) => sheet.addRow(row));

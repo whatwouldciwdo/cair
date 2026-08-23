@@ -29,14 +29,13 @@ test("corporate DOCX memiliki container ZIP valid", async () => {
   assert.ok(result.length > 1_000);
 });
 
-test("corporate XLSX memuat metadata, header, dan isi", async () => {
+test("corporate XLSX tidak memiliki print header dan tetap memuat footer serta isi", async () => {
   const result = await createConversationExport("xlsx", input);
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(Buffer.from(result) as unknown as ExcelJS.Buffer);
   const sheet = workbook.getWorksheet("Percakapan");
   assert.ok(sheet);
-  assert.match(sheet.headerFooter.oddHeader ?? "", /UBP CILEGON - OPERASI/);
-  assert.match(sheet.headerFooter.oddHeader ?? "", /CONFIDENTIAL/);
+  assert.equal(sheet.headerFooter.oddHeader, undefined);
   assert.match(sheet.headerFooter.oddFooter ?? "", /UBPC\/AI\/2026\/001/);
   assert.equal(sheet.getCell("D2").value, "Status unit normal.");
 });
