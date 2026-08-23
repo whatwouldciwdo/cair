@@ -3,6 +3,7 @@ services:
   db:
     image: postgres:16.4-alpine
     entrypoint: ["/bin/bash", "/usr/local/bin/docker-entrypoint.sh"]
+    command: ["postgres"]
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?required}
