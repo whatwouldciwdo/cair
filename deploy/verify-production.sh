@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-BASE_URL="${BASE_URL:-http://10.8.140.67}"
+BASE_URL="${BASE_URL:-http://10.8.140.67:3006}"
 mkdir -p evidence
 curl -fsS "$BASE_URL/api/health/live" | tee evidence/live.json
 curl -fsS "$BASE_URL/api/health/ready" | tee evidence/ready.json

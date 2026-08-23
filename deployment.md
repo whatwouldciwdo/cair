@@ -2,14 +2,14 @@
 
 Panduan ini digunakan untuk melakukan **clone pertama**, **deployment**, dan **update melalui `git pull`** pada server Ubuntu. Arsitektur produksi menggunakan Docker Compose: Nginx, web Next.js, worker, retention job, PostgreSQL, backup, Prometheus, dan Grafana.
 
-> Target bawaan konfigurasi saat ini adalah `http://10.8.140.67`. Sesuaikan `PUBLIC_HOST` bila alamat server berbeda. Secret produksi tidak boleh disimpan di Git.
+> Target bawaan konfigurasi saat ini adalah `http://10.8.140.67:3006`. Sesuaikan `PUBLIC_HOST` bila alamat server berbeda. Secret produksi tidak boleh disimpan di Git.
 
 ## 1. Prasyarat
 
 - Ubuntu 22.04/24.04 LTS x86_64.
 - Minimal 4 vCPU, RAM 8 GB, disk 50 GB (sesuaikan dengan dokumen dan model).
 - Server dapat mengakses Ollama, bawaan: `http://10.8.140.75:11434`.
-- Port TCP `80` dapat diakses oleh pengguna. Batasi SSH/monitoring dengan firewall internal.
+- Port TCP `3006` dapat diakses oleh pengguna. Batasi SSH/monitoring dengan firewall internal.
 - Akun GitHub memiliki akses ke repository bila repository bersifat private.
 
 Pasang Git, curl, Docker Engine, dan plugin Compose:
@@ -33,7 +33,7 @@ Aktifkan firewall bila UFW digunakan:
 
 ```bash
 sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
+sudo ufw allow 3006/tcp
 sudo ufw enable
 ```
 
@@ -108,15 +108,15 @@ Verifikasi:
 ```bash
 cd /opt/cair/deploy
 docker compose --env-file .env.production -f docker-compose.production.yml ps
-curl -fsS http://127.0.0.1/api/health/live
-curl -fsS http://127.0.0.1/api/health/ready
+curl -fsS http://127.0.0.1:3006/api/health/live
+curl -fsS http://127.0.0.1:3006/api/health/ready
 ./verify-production.sh
 ```
 
 Akses:
 
-- Aplikasi: `http://10.8.140.67/chat`
-- Grafana: `http://10.8.140.67/grafana/`
+- Aplikasi: `http://10.8.140.67:3006/chat`
+- Grafana: `http://10.8.140.67:3006/grafana/`
 
 Login awal memakai admin yang dihasilkan oleh proses seed hanya jika seed memang dijalankan. Untuk produksi, kelola user sesuai prosedur organisasi dan segera ganti password bootstrap. Jangan menjalankan `prisma db seed` berulang tanpa memeriksa dampaknya.
 
@@ -140,7 +140,7 @@ Pantau setelah update:
 cd /opt/cair/deploy
 docker compose --env-file .env.production -f docker-compose.production.yml ps
 docker compose --env-file .env.production -f docker-compose.production.yml logs --tail=200 web worker migrate
-curl -fsS http://127.0.0.1/api/health/ready
+curl -fsS http://127.0.0.1:3006/api/health/ready
 ```
 
 ## 6. Operasional umum

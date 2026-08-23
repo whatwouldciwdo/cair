@@ -3,8 +3,8 @@
 ## Bundle Ubuntu 10.8.140.67
 1. Salin repository ke `/opt/pltgu-ai`, lalu `cd /opt/pltgu-ai/deploy`.
 2. `cp .env.production.example .env.production`; isi secret unik (`openssl rand -base64 48`) dan `chmod 600 .env.production`.
-3. Pastikan Docker Engine + Compose plugin terpasang, port 80 hanya dapat diakses jaringan korporat, dan host dapat menjangkau Ollama `10.8.140.75:11434`.
-4. Jalankan `bash deploy-ubuntu.sh`, lalu `BASE_URL=http://10.8.140.67 bash verify-production.sh`.
+3. Pastikan Docker Engine + Compose plugin terpasang, port 3006 hanya dapat diakses jaringan korporat, dan host dapat menjangkau Ollama `10.8.140.75:11434`.
+4. Jalankan `bash deploy-ubuntu.sh`, lalu `BASE_URL=http://10.8.140.67:3006 bash verify-production.sh`.
 5. Untuk domain publik/internal DNS, pasang sertifikat TLS organisasi dan ubah Nginx menjadi listener 443 sebelum sign-off; IP HTTP hanya endpoint staging/UAT.
 6. Bukti teknis tersimpan di `deploy/evidence/`; jangan menganggapnya sebagai persetujuan UAT bisnis.
 
